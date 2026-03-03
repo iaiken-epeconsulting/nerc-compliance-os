@@ -1,61 +1,58 @@
 import sqlite3
+import os
 
 DB_PATH = "compliance_system.db"
 
 def get_connection():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    return sqlite3.connect(DB_PATH)
 
 def init_db():
     conn = get_connection()
     c = conn.cursor()
-
-    # 1. CLIENTS TABLE
+    
+    # Create Clients Table
     c.execute('''
         CREATE TABLE IF NOT EXISTS clients (
             client_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client_name TEXT NOT NULL UNIQUE,
+            client_name TEXT NOT NULL,
             go_flag INTEGER DEFAULT 0,
             gop_flag INTEGER DEFAULT 0,
             regional_entity TEXT,
             active_flag INTEGER DEFAULT 1
         )
     ''')
-
-    # 2. STANDARDS TABLE (Matching your seeded schema)
-    c.execute('''
-        CREATE TABLE IF NOT EXISTS standards (
-            standard_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            standard_code TEXT NOT NULL,
-            family TEXT,
-            sub_section TEXT,
-            requirement_text TEXT,
-            applicability_tags TEXT,
-            effective_date DATE,
-            status TEXT,
-            UNIQUE(standard_code, sub_section)
-        )
-    ''')
-
-    # 3. TASKS TABLE
+    
+    # Create Tasks Table (V3 Schema with all new columns)
     c.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             task_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            client_id INTEGER NOT NULL,
-            standard_id INTEGER,
-            title TEXT NOT NULL,
+            client_id INTEGER,
+            standard_code TEXT,
+            title TEXT,
+            description TEXT,
             due_date DATE,
+            internal_due_date DATE,
+            frequency TEXT DEFAULT 'Annual',
+            priority TEXT DEFAULT '🟡 Medium',
+            assigned_to TEXT DEFAULT 'Unassigned',
             status TEXT DEFAULT 'Pending',
-            source TEXT DEFAULT 'Manual',
+            source TEXT,
             active_flag INTEGER DEFAULT 1,
-            FOREIGN KEY (client_id) REFERENCES clients(client_id),
-            FOREIGN KEY (standard_id) REFERENCES standards(standard_id)
+            FOREIGN KEY (client_id) REFERENCES clients (client_id)
+        )
+    ''')
+    
+    # Create Standards Table
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS standards (
+            standard_code TEXT PRIMARY KEY,
+            title TEXT,
+            sub_section TEXT,
+            requirement_text TEXT,
+            applicability_tags TEXT,
+            status TEXT DEFAULT 'Active'
         )
     ''')
     
     conn.commit()
     conn.close()
-
-if __name__ == "__main__":
-    init_db()
