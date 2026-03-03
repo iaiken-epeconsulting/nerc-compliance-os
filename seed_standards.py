@@ -5,7 +5,7 @@ import os
 
 # --- CONFIGURATION ---
 DB_PATH = "compliance_system.db"
-EXCEL_FILENAME = "master.xlsx"
+EXCEL_FILENAME = "master.xlsx" # Streamlit saves the upload as this name
 
 def sanitize(val):
     if pd.isna(val): return None
@@ -37,23 +37,29 @@ def seed_database():
     ''')
 
     if not os.path.exists(EXCEL_FILENAME):
-        print(f"ERROR: Could not find {EXCEL_FILENAME}")
-        return
+        raise FileNotFoundError("Could not find the uploaded file on the server.")
 
-    print(f"Reading {EXCEL_FILENAME}...")
+    # 2. BULLETPROOF FILE READING
     try:
+        # Try reading as a true Excel file first
         df = pd.read_excel(EXCEL_FILENAME)
-    except Exception as e:
-        print(f"Read Error: {e}")
-        return
+    except Exception as e1:
+        try:
+            # Fallback: Read as CSV if it's a CSV masquerading as an Excel file
+            df = pd.read_csv(EXCEL_FILENAME, encoding='utf-8', encoding_errors='ignore')
+        except Exception as e2:
+            raise ValueError(f"Could not read file as Excel or CSV. \nExcel Error: {e1} \nCSV Error: {e2}")
 
     df.columns = df.columns.str.strip()
     
-    # 2. UPDATED FILTER LOGIC (Catches your exact NERC terms)
+    # 3. VERIFY CRITICAL COLUMNS
+    if 'Standard Version' not in df.columns and 'Standard' not in df.columns:
+        raise KeyError(f"Missing Critical Column ('Standard Version' or 'Standard'). Columns found in your file: {list(df.columns)}")
+
+    # 4. UPDATED FILTER LOGIC 
     if 'Status' in df.columns:
         df['Status_Clean'] = df['Status'].astype(str).str.strip().str.title()
         
-        # We now explicitly look for these exact phrases from your sheet
         keep_statuses = [
             'Active', 
             'Subject To Enforcement', 
@@ -62,13 +68,14 @@ def seed_database():
         ]
         
         active_df = df[df['Status_Clean'].isin(keep_statuses)]
-        print(f"Filter kept {len(active_df)} rows (out of {len(df)} total).")
+        
+        if active_df.empty:
+            raise ValueError(f"All {len(df)} rows were filtered out! The script only accepts Active or Enforced statuses. Statuses found in your file: {df['Status_Clean'].unique()}")
     else:
         active_df = df
 
-    print("Inserting records...")
+    # 5. INSERT RECORDS
     count = 0
-    
     for idx, row in active_df.iterrows():
         code = row.get('Standard Version')
         if pd.isna(code): code = row.get('Standard')
@@ -103,14 +110,14 @@ def seed_database():
             ''', (code_str, family_str, sub_section_str, req_str, tags_json, eff_date_str))
             count += 1
         except sqlite3.IntegrityError:
-            pass
-        except Exception as e:
-            print(f"Error on {code_str}: {e}")
+            pass # Skip exact duplicates
 
     conn.commit()
     conn.close()
-    print(f"--- SUCCESS ---")
-    print(f"Database populated with {count} rows.")
+    
+    # Final safety check
+    if count == 0:
+        raise RuntimeError("Script executed, but zero records were inserted. Double-check your CSV formatting.")
 
 if __name__ == "__main__":
     seed_database()
