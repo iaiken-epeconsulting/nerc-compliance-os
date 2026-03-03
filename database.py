@@ -45,14 +45,19 @@ def init_db():
     # Create Standards Table
     c.execute('''
         CREATE TABLE IF NOT EXISTS standards (
-            standard_code TEXT PRIMARY KEY,
-            title TEXT,
+            standard_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            standard_code TEXT NOT NULL,
+            family TEXT,
             sub_section TEXT,
+            title TEXT,
             requirement_text TEXT,
             applicability_tags TEXT,
-            status TEXT DEFAULT 'Active'
+            effective_date DATE,
+            status TEXT DEFAULT 'Active',
+            UNIQUE(standard_code, sub_section)
         )
     ''')
     
     conn.commit()
     conn.close()
+
