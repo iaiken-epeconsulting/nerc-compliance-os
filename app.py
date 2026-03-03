@@ -364,4 +364,33 @@ elif page == "Clients":
 # --- LIBRARY ---
 elif page == "Standards Library":
     st.title("Knowledge Base")
-    st.dataframe(run_query("SELECT standard_code, sub_section, requirement_text FROM standards LIMIT 100"), use_container_width=True, hide_index=True)
+    
+    # --- CLOUD SEEDING UI ---
+    with st.expander("⚙️ Admin: Upload NERC Master Spreadsheet", expanded=False):
+        st.warning("This will reset the Standards database and upload a new master list.")
+        uploaded_file = st.file_uploader("Upload master.xlsx", type=["xlsx"])
+        
+        if uploaded_file and st.button("🚀 Process & Seed Database", type="primary"):
+            with st.spinner("Parsing spreadsheet... this may take a minute."):
+                # Save the uploaded file temporarily so the seeder can read it
+                with open("master.xlsx", "wb") as f:
+                    f.write(uploaded_file.getbuffer())
+                
+                # Import your seeder script and run it!
+                import seed_standards
+                try:
+                    seed_standards.seed_database()
+                    st.success("Database successfully seeded! Check the table below.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Seeding failed: {e}")
+
+    # --- DISPLAY THE DATA ---
+    st.divider()
+    df_standards = run_query("SELECT standard_code, sub_section, requirement_text, applicability_tags FROM standards")
+    
+    if df_standards.empty:
+        st.info("The Standards Library is currently empty. Please upload the Master Spreadsheet above.")
+    else:
+        st.metric("Total Requirements Tracked", len(df_standards))
+        st.dataframe(df_standards, use_container_width=True, hide_index=True)
