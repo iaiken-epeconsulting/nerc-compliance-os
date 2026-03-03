@@ -370,7 +370,7 @@ elif page == "Standards Library":
         
         # Wrapping in a form prevents Streamlit from dropping the file on button click
         with st.form("seeder_form"):
-            uploaded_file = st.file_uploader("Upload master.xlsx", type=["xlsx", "xls"])
+            uploaded_file = st.file_uploader("Upload master.xlsx", type=["xlsx", "xls", "csv"])
             submitted = st.form_submit_button("🚀 Process & Seed Database", type="primary")
             
             if submitted:
@@ -410,4 +410,5 @@ elif page == "Standards Library":
             st.dataframe(df_standards, use_container_width=True, hide_index=True)
     except Exception as e:
         st.warning("Standards table not initialized. Please upload the master spreadsheet to build the database.")
+
 
