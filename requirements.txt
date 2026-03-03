@@ -1,0 +1,4 @@
+streamlit
+pandas
+xlsxwriter
+# O365 will be added later when we do Outlook integration
