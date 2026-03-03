@@ -365,32 +365,49 @@ elif page == "Clients":
 elif page == "Standards Library":
     st.title("Knowledge Base")
     
-    # --- CLOUD SEEDING UI ---
     with st.expander("⚙️ Admin: Upload NERC Master Spreadsheet", expanded=False):
         st.warning("This will reset the Standards database and upload a new master list.")
-        uploaded_file = st.file_uploader("Upload master.xlsx", type=["xlsx"])
         
-        if uploaded_file and st.button("🚀 Process & Seed Database", type="primary"):
-            with st.spinner("Parsing spreadsheet... this may take a minute."):
-                # Save the uploaded file temporarily so the seeder can read it
-                with open("master.xlsx", "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-                
-                # Import your seeder script and run it!
-                import seed_standards
-                try:
-                    seed_standards.seed_database()
-                    st.success("Database successfully seeded! Check the table below.")
-                    st.rerun()
-                except Exception as e:
-                    st.error(f"Seeding failed: {e}")
+        # Wrapping in a form prevents Streamlit from dropping the file on button click
+        with st.form("seeder_form"):
+            uploaded_file = st.file_uploader("Upload master.xlsx", type=["xlsx", "xls"])
+            submitted = st.form_submit_button("🚀 Process & Seed Database", type="primary")
+            
+            if submitted:
+                if uploaded_file is None:
+                    st.error("⚠️ Please browse and select a file before clicking Process.")
+                else:
+                    with st.spinner("Parsing spreadsheet... this may take a minute."):
+                        try:
+                            # Save the uploaded file temporarily so the seeder can read it
+                            with open("master.xlsx", "wb") as f:
+                                f.write(uploaded_file.getbuffer())
+                            
+                            # Import your seeder script and run it!
+                            import seed_standards
+                            seed_standards.seed_database()
+                            
+                            # Verify the results by checking the database count
+                            count_df = run_query("SELECT COUNT(*) as c FROM standards")
+                            inserted_count = count_df.iloc[0]['c']
+                            
+                            if inserted_count > 0:
+                                st.success(f"✅ Database successfully seeded with {inserted_count} requirements!")
+                            else:
+                                st.error("❌ The script ran, but 0 rows were added. Your Excel column headers likely do not match what the script expects. Check the backend logs.")
+                        except Exception as e:
+                            st.error(f"Seeding failed with a Python error: {e}")
 
     # --- DISPLAY THE DATA ---
     st.divider()
-    df_standards = run_query("SELECT standard_code, sub_section, requirement_text, applicability_tags FROM standards")
     
-    if df_standards.empty:
-        st.info("The Standards Library is currently empty. Please upload the Master Spreadsheet above.")
-    else:
-        st.metric("Total Requirements Tracked", len(df_standards))
-        st.dataframe(df_standards, use_container_width=True, hide_index=True)
+    try:
+        df_standards = run_query("SELECT standard_code, sub_section, requirement_text, applicability_tags FROM standards")
+        if df_standards.empty:
+            st.info("The Standards Library is currently empty. Please upload the Master Spreadsheet above.")
+        else:
+            st.metric("Total Requirements Tracked", len(df_standards))
+            st.dataframe(df_standards, use_container_width=True, hide_index=True)
+    except Exception as e:
+        st.warning("Standards table not initialized. Please upload the master spreadsheet to build the database.")
+
