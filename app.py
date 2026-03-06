@@ -10,7 +10,7 @@ import automation
 import reports
 
 # --- CONFIGURATION & THEME ---
-st.set_page_config(page_title="NERC Manager", page_icon="⚡", layout="wide")
+st.set_page_config(page_title="NERC Manager", layout="wide")
 
 # --- CUSTOM CSS ---
 st.markdown("""
@@ -51,7 +51,7 @@ if 'db_setup' not in st.session_state:
     st.session_state['db_setup'] = True
 
 # Standard Configuration
-USER_LIST = ["Unassigned", "Ian Aiken", "Compliance Team", "Engineering Dept", "Management"]
+USER_LIST = ["Unassigned", "Ian Aiken", "Jennifer Hart", "Calvin Wheatley", "Matthew Clairday"]
 FREQ_LIST = ["Annual", "Quarterly", "Monthly", "Weekly", "Event-Driven", "One-Time"]
 
 # --- HELPERS ---
@@ -410,5 +410,6 @@ elif page == "Standards Library":
             st.dataframe(df_standards, use_container_width=True, hide_index=True)
     except Exception as e:
         st.warning("Standards table not initialized. Please upload the master spreadsheet to build the database.")
+
 
 
