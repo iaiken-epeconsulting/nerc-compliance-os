@@ -325,6 +325,31 @@ elif page == "Clients":
                         if excel: st.download_button("Download .xlsx", excel, name, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                         else: st.error("No tasks found to export.")
 
+                # --- NEW BULK RESCHEDULE TOOL ---
+                st.divider()
+                st.markdown("#### 📅 Bulk Reschedule Deadlines")
+                st.caption("Change the regulatory deadline for all 'Pending' tasks for this asset at the same time.")
+                
+                bc1, bc2 = st.columns([1, 1])
+                new_bulk_date = bc1.date_input("New Target Deadline")
+                
+                if bc2.button("Apply to All Pending Tasks", type="primary", use_container_width=True):
+                    # Auto-calculate the internal date for the bulk shift
+                    internal_bulk_date = new_bulk_date - timedelta(days=30)
+                    
+                    conn = get_connection()
+                    c = conn.cursor()
+                    c.execute("""
+                        UPDATE tasks 
+                        SET due_date = ?, internal_due_date = ? 
+                        WHERE client_id = ? AND status = 'Pending'
+                    """, (new_bulk_date, internal_bulk_date, c_id))
+                    conn.commit()
+                    conn.close()
+                    
+                    st.success(f"Successfully shifted all pending deadlines to {new_bulk_date.strftime('%B %d, %Y')}!")
+                    st.rerun()
+
             with t3:
                 st.write(f"**Manage Enforced Standards for {selected_client}**")
                 roster_df = run_query("""
@@ -410,6 +435,7 @@ elif page == "Standards Library":
             st.dataframe(df_standards, use_container_width=True, hide_index=True)
     except Exception as e:
         st.warning("Standards table not initialized. Please upload the master spreadsheet to build the database.")
+
 
 
 
