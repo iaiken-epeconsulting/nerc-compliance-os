@@ -1,0 +1,92 @@
+"""
+import_task_list.py
+Imports the cleaned EPE task list into the NERC Compliance OS database.
+Seeds the task_templates table so the automation engine can generate tasks for any client.
+
+Usage:
+    python import_task_list.py                          # Uses cleaned_templates.csv in same directory
+    python import_task_list.py path/to/templates.csv    # Custom path
+"""
+
+import pandas as pd
+import sqlite3
+import sys
+import os
+
+DB_PATH = "compliance_system.db"
+DEFAULT_CSV = "cleaned_templates.csv"
+
+
+def import_templates(csv_path):
+    if not os.path.exists(csv_path):
+        print(f"ERROR: File not found: {csv_path}")
+        sys.exit(1)
+
+    if not os.path.exists(DB_PATH):
+        print(f"ERROR: Database not found: {DB_PATH}")
+        print("Run the app first to initialize the database, then re-run this script.")
+        sys.exit(1)
+
+    df = pd.read_csv(csv_path)
+    print(f"Loaded {len(df)} templates from {csv_path}")
+
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+
+    # Ensure task_templates table exists
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS task_templates (
+            template_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            standard_code TEXT NOT NULL,
+            task_title TEXT NOT NULL,
+            applicability_tags TEXT,
+            days_offset INTEGER DEFAULT 0
+        )
+    ''')
+
+    # Check current count
+    current_count = c.execute("SELECT COUNT(*) FROM task_templates").fetchone()[0]
+    print(f"Existing templates in DB: {current_count}")
+
+    # Import with duplicate checking
+    inserted = 0
+    skipped = 0
+
+    for _, row in df.iterrows():
+        standard_code = str(row['standard_code']).strip()
+        task_title = str(row['task_title']).strip()
+        tags = str(row['applicability_tags']).strip()
+        offset = int(row['days_offset'])
+
+        # Check if this exact template already exists
+        existing = c.execute(
+            "SELECT template_id FROM task_templates WHERE standard_code = ? AND task_title = ?",
+            (standard_code, task_title)
+        ).fetchone()
+
+        if existing:
+            skipped += 1
+            continue
+
+        c.execute(
+            "INSERT INTO task_templates (standard_code, task_title, applicability_tags, days_offset) VALUES (?, ?, ?, ?)",
+            (standard_code, task_title, tags, offset)
+        )
+        inserted += 1
+
+    conn.commit()
+
+    # Final count
+    final_count = c.execute("SELECT COUNT(*) FROM task_templates").fetchone()[0]
+    conn.close()
+
+    print(f"\nResults:")
+    print(f"  Inserted: {inserted}")
+    print(f"  Skipped (duplicates): {skipped}")
+    print(f"  Total templates now in DB: {final_count}")
+    print(f"\nDone. Run the automation engine in the app to generate tasks from these templates.")
+
+
+if __name__ == "__main__":
+    csv_path = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_CSV
+    import_templates(csv_path)
