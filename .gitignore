@@ -1,0 +1,5 @@
+compliance_system.db
+__pycache__/
+.env
+*.pyc
+data/
