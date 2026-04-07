@@ -2,6 +2,7 @@
 
 Initializes the database and redirects to the Dashboard page.
 All UI logic lives in pages/.
+https://nerc-beta-test.streamlit.app/
 """
 import streamlit as st
 from utils import apply_theme, ensure_db
